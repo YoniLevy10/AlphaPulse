@@ -41,6 +41,11 @@ class MarketSnapshot:
     simulated_hold_minutes: int = 0
     max_favorable_excursion: float = 0.0
     max_adverse_excursion: float = 0.0
+    data_source: str = "sample"
+    feed_timestamp_utc: str = ""
+    is_real_time: bool = False
+    execution_mode: str = "SIMULATED_CSV"
+    source_latency_ms: int = 0
 
     @property
     def pct_change(self) -> float:

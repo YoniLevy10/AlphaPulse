@@ -69,6 +69,10 @@ python -m alphapulse.cli serve --db data/alphapulse.db --host 127.0.0.1 --port 8
 Open `http://127.0.0.1:8765` in the browser. The dashboard includes a live P/L
 summary strip, account state, trade documentation ledger, and learning snapshot.
 
+For any real paper-trading session, use `--require-real-data`. This rejects
+sample/backtest/simulated rows unless they include real-time broker-paper
+metadata. See `REAL_DATA_POLICY.md`.
+
 ## Phase 1 Goal
 
 Find and measure intraday penny-stock paper trade signals with:

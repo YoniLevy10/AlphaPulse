@@ -17,6 +17,16 @@ REQUIRED_COLUMNS = {
     "level2_depth_score",
 }
 
+REAL_DATA_REQUIRED_COLUMNS = {
+    "data_source",
+    "feed_timestamp_utc",
+    "is_real_time",
+    "execution_mode",
+}
+
+DISALLOWED_REAL_DATA_SOURCES = {"sample", "demo", "mock", "manual", "backtest", "simulated_csv"}
+ALLOWED_REAL_EXECUTION_MODES = {"PAPER_BROKER", "BROKER_PAPER", "BANK_PAPER"}
+
 
 def parse_bool(value: str) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "y"}
@@ -28,7 +38,28 @@ def parse_optional_int(value: str | None) -> int | None:
     return int(value)
 
 
-def load_market_snapshots(path: str | Path) -> list[MarketSnapshot]:
+def validate_real_data_row(row: dict[str, str], row_number: int) -> None:
+    missing = [column for column in REAL_DATA_REQUIRED_COLUMNS if not row.get(column)]
+    if missing:
+        raise ValueError(
+            f"Real-data mode row {row_number} missing required columns: {', '.join(sorted(missing))}"
+        )
+
+    data_source = row["data_source"].strip().lower()
+    execution_mode = row["execution_mode"].strip().upper()
+    if data_source in DISALLOWED_REAL_DATA_SOURCES:
+        raise ValueError(f"Real-data mode row {row_number} uses disallowed data_source: {row['data_source']}")
+    if not parse_bool(row["is_real_time"]):
+        raise ValueError(f"Real-data mode row {row_number} is not marked real-time")
+    if execution_mode not in ALLOWED_REAL_EXECUTION_MODES:
+        raise ValueError(
+            f"Real-data mode row {row_number} has unsupported execution_mode: {row['execution_mode']}"
+        )
+    if row.get("simulated_exit_price"):
+        raise ValueError(f"Real-data mode row {row_number} contains simulated_exit_price")
+
+
+def load_market_snapshots(path: str | Path, require_real_data: bool = False) -> list[MarketSnapshot]:
     snapshots: list[MarketSnapshot] = []
     with Path(path).open("r", newline="", encoding="utf-8") as handle:
         reader = csv.DictReader(handle)
@@ -36,7 +67,14 @@ def load_market_snapshots(path: str | Path) -> list[MarketSnapshot]:
         if missing:
             missing_list = ", ".join(sorted(missing))
             raise ValueError(f"Market snapshot CSV missing required columns: {missing_list}")
-        for row in reader:
+        if require_real_data:
+            real_missing = REAL_DATA_REQUIRED_COLUMNS - set(reader.fieldnames or [])
+            if real_missing:
+                missing_list = ", ".join(sorted(real_missing))
+                raise ValueError(f"Real-data mode CSV missing required columns: {missing_list}")
+        for row_number, row in enumerate(reader, start=2):
+            if require_real_data:
+                validate_real_data_row(row, row_number)
             snapshots.append(
                 MarketSnapshot(
                     ticker=row["ticker"].strip().upper(),
@@ -79,6 +117,11 @@ def load_market_snapshots(path: str | Path) -> list[MarketSnapshot]:
                     simulated_hold_minutes=int(row.get("simulated_hold_minutes", 0) or 0),
                     max_favorable_excursion=float(row.get("max_favorable_excursion", 0) or 0),
                     max_adverse_excursion=float(row.get("max_adverse_excursion", 0) or 0),
+                    data_source=row.get("data_source", "sample"),
+                    feed_timestamp_utc=row.get("feed_timestamp_utc", ""),
+                    is_real_time=parse_bool(row.get("is_real_time", "false")),
+                    execution_mode=row.get("execution_mode", "SIMULATED_CSV"),
+                    source_latency_ms=int(row.get("source_latency_ms", 0) or 0),
                 )
             )
     return snapshots

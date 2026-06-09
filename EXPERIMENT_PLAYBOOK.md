@@ -29,6 +29,10 @@ python -m alphapulse.cli serve --db data/alphapulse.db --host 127.0.0.1 --port 8
 Use `--fresh-account` only for smoke tests. For the real paper experiment, let
 the system continue from the latest account snapshot.
 
+For real paper sessions, add `--require-real-data` and use only snapshots coming
+from a broker/data-feed adapter. Do not use `data/sample_market_snapshot.csv` for
+real experiment metrics.
+
 The dashboard URL is `http://127.0.0.1:8765`. Keep that process running during a
 paper session if you want a 24/7-style local monitor.
 

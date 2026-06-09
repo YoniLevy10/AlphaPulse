@@ -41,6 +41,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Print only candidates approved for research",
     )
+    scan.add_argument(
+        "--require-real-data",
+        action="store_true",
+        help="Reject sample/backtest/simulated input and require real-time broker-paper data metadata",
+    )
     learn = subparsers.add_parser("learn", help="Generate learning report from paper trades")
     learn.add_argument("--db", default="data/alphapulse.db", help="SQLite database path")
 
@@ -63,7 +68,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def run_scan(args: argparse.Namespace) -> int:
-    snapshots = load_market_snapshots(args.input)
+    snapshots = load_market_snapshots(args.input, require_real_data=args.require_real_data)
     config = AppConfig()
     if args.starting_capital is not None:
         config = replace(
