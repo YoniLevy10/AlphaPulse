@@ -52,6 +52,23 @@ $env:PYTHONPATH = "src"
 python -m alphapulse.cli trades --db data/alphapulse.db --limit 20
 ```
 
+Export an Excel-friendly trade documentation ledger:
+
+```powershell
+$env:PYTHONPATH = "src"
+python -m alphapulse.cli export-ledger --db data/alphapulse.db --output exports/alphapulse_trade_ledger.csv
+```
+
+Run the local visual command center:
+
+```powershell
+$env:PYTHONPATH = "src"
+python -m alphapulse.cli serve --db data/alphapulse.db --host 127.0.0.1 --port 8765
+```
+
+Open `http://127.0.0.1:8765` in the browser. The dashboard includes a live P/L
+summary strip, account state, trade documentation ledger, and learning snapshot.
+
 ## Phase 1 Goal
 
 Find and measure intraday penny-stock paper trade signals with:

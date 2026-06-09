@@ -5,6 +5,7 @@ from contextlib import closing
 from pathlib import Path
 
 from alphapulse.config import AppConfig
+from alphapulse.exporting import export_trade_ledger_csv
 from alphapulse.io import load_market_snapshots
 from alphapulse.learning import LearningEngine
 from alphapulse.pipeline import PhaseOnePipeline
@@ -77,6 +78,28 @@ class PipelineAndStorageTests(unittest.TestCase):
         self.assertEqual(report["total_trades"], 2)
         self.assertIn("by_setup", report)
         self.assertIn("recommendations", report)
+
+    def test_dashboard_summary_and_trade_ledger_export(self):
+        snapshots = load_market_snapshots("data/sample_market_snapshot.csv")
+        pipeline = PhaseOnePipeline(AppConfig(), trading_day="2026-06-09")
+        results = pipeline.evaluate(snapshots)
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            db_path = Path(tmp_dir) / "alphapulse.db"
+            output_path = Path(tmp_dir) / "ledger.csv"
+            logger = SQLiteLogger(db_path)
+            logger.log_run(results)
+            logger.log_account_state(pipeline.account.state)
+
+            summary = logger.dashboard_summary()
+            export_trade_ledger_csv(db_path, output_path)
+            exported = output_path.read_text(encoding="utf-8-sig")
+
+        self.assertEqual(summary["signals"]["paper_trades"], 2)
+        self.assertAlmostEqual(summary["account"]["current_equity"], pipeline.account.state.current_equity)
+        self.assertIn("P/L Summary", exported)
+        self.assertIn("AlphaPulse Paper Trading Ledger", exported)
+        self.assertIn("ABCD", exported)
 
     def test_account_state_can_continue_across_runs(self):
         snapshots = load_market_snapshots("data/sample_market_snapshot.csv")

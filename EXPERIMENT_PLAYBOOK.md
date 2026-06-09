@@ -22,10 +22,15 @@ python -m alphapulse.cli scan --input data/sample_market_snapshot.csv --db data/
 python -m alphapulse.cli account --db data/alphapulse.db
 python -m alphapulse.cli trades --db data/alphapulse.db --limit 20
 python -m alphapulse.cli learn --db data/alphapulse.db
+python -m alphapulse.cli export-ledger --db data/alphapulse.db --output exports/alphapulse_trade_ledger.csv
+python -m alphapulse.cli serve --db data/alphapulse.db --host 127.0.0.1 --port 8765
 ```
 
 Use `--fresh-account` only for smoke tests. For the real paper experiment, let
 the system continue from the latest account snapshot.
+
+The dashboard URL is `http://127.0.0.1:8765`. Keep that process running during a
+paper session if you want a 24/7-style local monitor.
 
 ## Current Guardrails
 
@@ -94,4 +99,3 @@ Useful optional columns:
 - Weak setup/news/time buckets identified and filtered
 - No unresolved data-quality issues
 - No risk-rule violations
-

@@ -5,10 +5,12 @@ from datetime import date
 from pathlib import Path
 
 from alphapulse.config import AppConfig
+from alphapulse.exporting import export_trade_ledger_csv
 from alphapulse.io import load_market_snapshots
 from alphapulse.learning import LearningEngine
 from alphapulse.pipeline import PhaseOnePipeline
 from alphapulse.storage import SQLiteLogger
+from alphapulse.web import serve_dashboard
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -48,6 +50,15 @@ def build_parser() -> argparse.ArgumentParser:
     trades = subparsers.add_parser("trades", help="List recent paper trade records")
     trades.add_argument("--db", default="data/alphapulse.db", help="SQLite database path")
     trades.add_argument("--limit", type=int, default=20, help="Number of recent rows to show")
+
+    export = subparsers.add_parser("export-ledger", help="Export account summary and trade ledger CSV")
+    export.add_argument("--db", default="data/alphapulse.db", help="SQLite database path")
+    export.add_argument("--output", default="exports/alphapulse_trade_ledger.csv", help="Output CSV path")
+
+    serve = subparsers.add_parser("serve", help="Run NAARYO-inspired local dashboard")
+    serve.add_argument("--db", default="data/alphapulse.db", help="SQLite database path")
+    serve.add_argument("--host", default="127.0.0.1", help="Host to bind")
+    serve.add_argument("--port", type=int, default=8765, help="Port to bind")
     return parser
 
 
@@ -170,6 +181,12 @@ def run_trades(args: argparse.Namespace) -> int:
     return 0
 
 
+def run_export_ledger(args: argparse.Namespace) -> int:
+    output = export_trade_ledger_csv(args.db, args.output)
+    print(f"exported_trade_ledger={output}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -183,6 +200,11 @@ def main(argv: list[str] | None = None) -> int:
         return run_account(args)
     if args.command == "trades":
         return run_trades(args)
+    if args.command == "export-ledger":
+        return run_export_ledger(args)
+    if args.command == "serve":
+        serve_dashboard(args.db, args.host, args.port)
+        return 0
 
     parser.error(f"Unknown command: {args.command}")
     return 2

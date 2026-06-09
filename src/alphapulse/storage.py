@@ -496,6 +496,115 @@ class SQLiteLogger:
                 )
             )
 
+    def trade_ledger_rows(self) -> list[sqlite3.Row]:
+        with closing(self._connect()) as conn:
+            conn.row_factory = sqlite3.Row
+            return list(
+                conn.execute(
+                    """
+                    SELECT
+                        id,
+                        ticker,
+                        decision,
+                        setup,
+                        entry_trigger,
+                        theoretical_entry,
+                        stop,
+                        target,
+                        max_hold_minutes,
+                        reason,
+                        confidence,
+                        risk_level,
+                        shares,
+                        position_value,
+                        risk_amount,
+                        scanner_score,
+                        technical_score,
+                        momentum_score,
+                        catalyst_score,
+                        liquidity_score,
+                        news_type,
+                        float_category,
+                        spread_pct,
+                        relative_volume,
+                        time_of_day,
+                        market_condition,
+                        exit_price,
+                        exit_reason,
+                        pnl_usd,
+                        pnl_pct,
+                        r_multiple,
+                        win_loss,
+                        max_favorable_excursion,
+                        max_adverse_excursion,
+                        hold_minutes,
+                        slippage_estimate,
+                        rule_violations_json,
+                        result,
+                        created_at
+                    FROM paper_trades
+                    ORDER BY id
+                    """
+                )
+            )
+
+    def dashboard_summary(self) -> dict[str, object]:
+        state = self.load_latest_account_state()
+        with closing(self._connect()) as conn:
+            conn.row_factory = sqlite3.Row
+            trade_stats = conn.execute(
+                """
+                SELECT
+                    COUNT(CASE WHEN decision = 'PAPER_TRADE' THEN 1 END) AS paper_trades,
+                    COUNT(CASE WHEN decision = 'WATCHLIST' THEN 1 END) AS watchlist,
+                    COUNT(CASE WHEN decision = 'REJECT' THEN 1 END) AS rejected,
+                    COALESCE(SUM(CASE WHEN decision = 'PAPER_TRADE' THEN pnl_usd ELSE 0 END), 0) AS total_pnl,
+                    COALESCE(AVG(CASE WHEN decision = 'PAPER_TRADE' THEN r_multiple END), 0) AS avg_r,
+                    COALESCE(SUM(CASE WHEN decision = 'PAPER_TRADE' AND pnl_usd > 0 THEN 1 ELSE 0 END), 0) AS wins,
+                    COALESCE(SUM(CASE WHEN decision = 'PAPER_TRADE' AND pnl_usd < 0 THEN 1 ELSE 0 END), 0) AS losses
+                FROM paper_trades
+                """
+            ).fetchone()
+            recent = list(
+                conn.execute(
+                    """
+                    SELECT ticker, decision, setup, confidence, pnl_usd, r_multiple, created_at
+                    FROM paper_trades
+                    ORDER BY id DESC
+                    LIMIT 8
+                    """
+                )
+            )
+
+        paper_trades = trade_stats["paper_trades"] or 0
+        wins = trade_stats["wins"] or 0
+        win_rate = (wins / paper_trades) if paper_trades else 0.0
+        return {
+            "account": None if state is None else {
+                "trading_day": state.trading_day,
+                "starting_capital": state.starting_capital,
+                "current_equity": state.current_equity,
+                "cash_available": state.cash_available,
+                "daily_pnl": state.daily_pnl,
+                "realized_pnl": state.realized_pnl,
+                "unrealized_pnl": state.unrealized_pnl,
+                "max_daily_loss_usd": state.max_daily_loss_usd,
+                "max_open_positions": state.max_open_positions,
+                "trading_enabled": state.trading_enabled,
+            },
+            "signals": {
+                "paper_trades": paper_trades,
+                "watchlist": trade_stats["watchlist"] or 0,
+                "rejected": trade_stats["rejected"] or 0,
+                "wins": wins,
+                "losses": trade_stats["losses"] or 0,
+                "win_rate": round(win_rate, 4),
+                "avg_r": round(trade_stats["avg_r"] or 0.0, 4),
+                "total_pnl": round(trade_stats["total_pnl"] or 0.0, 2),
+            },
+            "recent": [dict(row) for row in recent],
+        }
+
     def log_candidate_result(self, result: CandidateResult) -> None:
         with closing(self._connect()) as conn:
             with conn:
